@@ -17,7 +17,7 @@ namespace Model.Field
 
         public T Default { get; protected set; }
 
-        public T Value { get; set; }
+        public virtual T Value { get; set; }
 
         public bool IsStore { get; protected set; }
 
@@ -26,6 +26,20 @@ namespace Model.Field
         public ModelBase Model { get; protected set; }
 
         public string FieldName { get; protected set; }
+        private string _columnName;
+        /// <summary>
+        /// 数据库字段名称
+        /// </summary>
+        public string ColumnName
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(_columnName))
+                    return _columnName;
+                return FieldName;
+            }
+            protected set { _columnName = value; }
+        }
 
         public int Size { get; protected set; }
 

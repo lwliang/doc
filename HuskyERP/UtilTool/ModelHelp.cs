@@ -12,7 +12,7 @@ namespace UtilTool
         {
             if (string.IsNullOrEmpty(modelName))
                 return string.Empty;
-            return modelName.Replace(',', '_');
+            return modelName.Replace('.', '_');
         }
     }
 }

@@ -48,6 +48,9 @@
     <Compile Include="Field\FieldBase.cs" />
     <Compile Include="Field\FieldFactory.cs" />
     <Compile Include="Field\IntegerField.cs" />
+    <Compile Include="Field\Many2Many.cs" />
+    <Compile Include="Field\Many2One.cs" />
+    <Compile Include="Field\One2Many.cs" />
     <Compile Include="Field\StringField.cs" />
     <Compile Include="Model.cs" />
     <Compile Include="ModelManager.cs" />
