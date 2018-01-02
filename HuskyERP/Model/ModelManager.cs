@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Model.DataBase;
@@ -25,30 +27,211 @@ namespace Model
         {
             ModelDic[modelBase.ModelName] = modelBase.GetType();
         }
+
+        public RealModel CreateInstance(string modelName)
+        {
+            if (!ModelDic.ContainsKey(modelName)) return null;
+            return Activator.CreateInstance(ModelDic[modelName]) as RealModel;
+        }
+
         public void UpLoad(ModelBase modelBase)
         {
             ModelDic.Remove(modelBase.ModelName);
         }
 
-        public IList<T> Search<T>()
+        public ModelBase Search(string modelName, int id)
         {
-            throw new NotImplementedException();
+            var modelObj = CreateInstance(modelName);
+            if (modelObj == null)
+                throw new ArgumentException("获取实体表不存在");
+            using (var sqlAccess =
+               SqlAccessFactory.CreateSqlAccess(DataBaseManager.Instance.SqlType,
+                   DataBaseManager.Instance.ConnectString))
+            {
+                var sql = CreateSelectSql(modelObj, id, false);
+                var dt = sqlAccess.ExecuteDataTable(sql);
+
+                if (dt.Rows.Count == 0) return null;
+                var firstRow = dt.Rows[0];
+                foreach (DataColumn col in dt.Columns)
+                {
+                    if (col.ColumnName == "Id")
+                    {
+                        SetProperty(modelObj, "Id", firstRow[col]);
+                    }
+                    else
+                    {
+                        var colPro = modelObj.GetType().GetProperty(col.ColumnName);
+                        if (colPro.PropertyType == typeof(Many2One) ||
+                            colPro.PropertyType == typeof(Many2Many) ||
+                            colPro.PropertyType == typeof(One2Many))
+                        {
+                            if (firstRow[col] == DBNull.Value) continue;
+                            if (colPro.PropertyType == typeof(Many2One))
+                            {
+                                dynamic m2o = colPro.GetValue(modelObj);
+
+                            }
+                            else if (colPro.PropertyType == typeof(One2Many))
+                            {
+
+                            }
+                        }
+                        else
+                            SetColumnProperty(modelObj, col.ColumnName, firstRow[col]);
+                    }
+                }
+            }
+            return modelObj;
         }
+
+        private void SetColumnProperty(object obj, string propertyName, object value)
+        {
+            var colPro = obj.GetType().GetProperty(propertyName);
+            dynamic colObj = colPro.GetValue(obj);
+            if (value == DBNull.Value || value == null)
+            {
+                SetProperty(colObj, "Value", colObj.Default);
+            }
+            else
+                SetProperty(colObj, "Value", value);
+        }
+
+        private void SetProperty(object obj, string propertyName, object value)
+        {
+            var pro = obj.GetType().GetProperty(propertyName);
+
+            pro.SetValue(obj, value);
+        }
+
+        private string CreateSelectSql(ModelBase model, int id, bool isAddm2o)
+        {
+            var cols = GetSelectColumn(model, isAddm2o);
+
+            var sql = string.Format($"SELECT Id,{cols} " +
+                $"FROM {model.TableName} " +
+                $"WHERE Id = {id} ");
+            return sql;
+        }
+
+        private string GetSelectColumn(ModelBase model, bool isAddm2o, string prefix = "")
+        {
+            var cols = new StringBuilder();
+            foreach (var col in model.GetColumnsField())
+            {
+                dynamic sField = col;
+
+                if (!sField.IsStore) continue;
+                var columnName = string.Empty;
+                if (sField is Many2Many ||
+                    sField is Many2One ||
+                    sField is One2Many)
+                {
+                    if (!isAddm2o) continue;
+                    if (sField is Many2Many)
+                    {
+                    }
+                    else
+                        columnName = string.Format($"{sField.ColumnName} AS {sField.FieldName}");
+                }
+                else
+                    columnName = string.Format($"{sField.ColumnName} AS {sField.FieldName}");
+
+                if (string.IsNullOrEmpty(columnName)) continue;
+                if (!string.IsNullOrEmpty(prefix))
+                    columnName = string.Format($"{prefix}.{columnName}");
+                if (cols.Length == 0)
+                    cols.Append(columnName);
+                else
+                    cols.Append("," + columnName);
+            }
+            return cols.ToString();
+        }
+
+
         public bool Insert(ModelBase model)
         {
-            throw new NotImplementedException();
+            using (var sqlAccess =
+               SqlAccessFactory.CreateSqlAccess(DataBaseManager.Instance.SqlType,
+                   DataBaseManager.Instance.ConnectString))
+            {
+                var sql = CreateInsertSql(model);
+                return sqlAccess.ExecuteNonQuery(sql) > 0;
+            }
+        }
+
+        private string CreateInsertSql(ModelBase model)
+        {
+            var sql = $"INSERT INTO {model.TableName}({{0}}) VALUES({{1}})";
+            var fields = new StringBuilder();
+            var values = new StringBuilder();
+            foreach (dynamic col in model.GetColumnsField())
+            {
+                if (col is Many2Many ||
+                    col is Many2One ||
+                    col is One2Many)
+                    continue;
+                if (fields.Length == 0)
+                    fields.Append(col.ColumnName);
+                else
+                    fields.Append("," + col.ColumnName);
+                if (values.Length == 0)
+                    values.Append(col.ColumnValue);
+                else
+                    values.Append("," + col.ColumnValue);
+            }
+
+            return string.Format(sql, fields.ToString(), values.ToString());
         }
 
         public bool Update(ModelBase model)
         {
-            throw new NotImplementedException();
+            if (model == null || model.Id <= 0) return false;
+            using (var sqlAccess =
+             SqlAccessFactory.CreateSqlAccess(DataBaseManager.Instance.SqlType,
+                 DataBaseManager.Instance.ConnectString))
+            {
+                var sql = CreateUpdateSql(model);
+                return sqlAccess.ExecuteNonQuery(sql) > 0;
+            }
         }
 
-        public bool Delete<T>(int id)
+        private string CreateUpdateSql(ModelBase model)
         {
-            throw new NotImplementedException();
+            var cols = model.GetModifColumnsField();
+            if (cols.Count == 0) return string.Empty;
+
+            var sql = $"UPDATE {model.TableName} SET {{0}} WHERE Id = {model.Id}";
+            var updates = new StringBuilder();
+            foreach (dynamic col in cols)
+            {
+                if (col is Many2Many ||
+                    col is Many2One ||
+                    col is One2Many)
+                    continue;
+                if (updates.Length == 0)
+                    updates.Append($"{col.ColumnName} = {col.ColumnValue}");
+                else
+                    updates.Append($",{col.ColumnName} = {col.ColumnValue}");
+            }
+            return string.Format(sql, updates.ToString());
         }
 
+        public bool Delete(string modelName, int id)
+        {
+            var modelObj = CreateInstance(modelName);
+            using (var sqlAccess =
+              SqlAccessFactory.CreateSqlAccess(DataBaseManager.Instance.SqlType,
+                  DataBaseManager.Instance.ConnectString))
+            {
+                var delSql = CreateDeleteSql(modelObj, id);
+                return sqlAccess.ExecuteNonQuery(delSql) > 0;
+            }
+        }
+        private string CreateDeleteSql(ModelBase model, int id)
+        {
+            return string.Format($"DELETE FROM {model.TableName} WHERE Id = {id}");
+        }
 
         public bool UpgradeDataBase(string dataBaseName)
         {
@@ -106,11 +289,34 @@ namespace Model
                     foreach (var column in model.GetColumnsField())
                     {
                         dynamic sfield = column;
-
-                        sql = CreateColumn(model.TableName, sfield.FieldName,
-                        sfield.Type, sfield.Size, sfield.Precision);
-
-                        sqlAccess.ExecuteNonQuery(sql);
+                        if (!sfield.IsStore) continue;
+                        if (sfield is Many2Many ||
+                            sfield is Many2One)
+                        {
+                            if (sfield is Many2Many)
+                            {
+                                sql = IsExistTable(model.TableName);
+                                if (SqlTyepConvert.ConvertToInt(sqlAccess.ExecuteScalar(sql)) == 0)
+                                {//不存在
+                                    sql = CreateRelationTable(sfield.RelationTableName,
+                                        sfield.ColumnName, sfield.ColumnName1);
+                                }
+                                else
+                                    sql = string.Empty;
+                            }
+                            else
+                            {
+                                sql = CreateColumn(model.TableName, sfield.ColumnName,
+                                typeof(int), 0, 0);
+                            }
+                        }
+                        else
+                        {
+                            sql = CreateColumn(model.TableName, sfield.ColumnName,
+                                sfield.Type, sfield.Size, sfield.Precision);
+                        }
+                        if (!string.IsNullOrEmpty(sql))
+                            sqlAccess.ExecuteNonQuery(sql);
                     }
                 }
                 catch (Exception e)
@@ -119,6 +325,11 @@ namespace Model
                     throw;
                 }
             }
+        }
+
+        private string CreateRelationTable(string tableName, string column1, string column2)
+        {
+            return string.Format($"CREATE TABLE {tableName}({column1} INT,{column2} INT)");
         }
         public void UpgradeAllTables()
         {
@@ -140,18 +351,44 @@ namespace Model
                     foreach (var column in model.GetColumnsField())
                     {
                         dynamic sfield = column;
-                        sql = IsExistColumn(model.TableName, sfield.FieldName);
-                        if (SqlTyepConvert.ConvertToInt(sqlAccess.ExecuteScalar(sql)) > 0)
+                        if (!sfield.IsStore) continue;
+                        if (sfield is Many2Many ||
+                            sfield is Many2One)
                         {
-                            sql = UpgradeColumn(model.TableName, sfield.FieldName,
-                            sfield.Type, sfield.Size, sfield.Precision);
+                            if (sfield is Many2Many)
+                            {
+                                sql = IsExistTable(model.TableName);
+                                if (SqlTyepConvert.ConvertToInt(sqlAccess.ExecuteScalar(sql)) == 0)
+                                {//不存在
+                                    sql = CreateRelationTable(sfield.RelationTableName,
+                                        sfield.ColumnName, sfield.ColumnName1);
+                                }
+                                else
+                                    sql = string.Empty;
+                            }
+                            else
+                            {
+                                sql = CreateColumn(model.TableName, sfield.ColumnName,
+                                typeof(int), 0, 0);
+                            }
+                            if (!string.IsNullOrEmpty(sql))
+                                sqlAccess.ExecuteNonQuery(sql);
                         }
                         else
                         {
-                            sql = CreateColumn(model.TableName, sfield.FieldName,
-                            sfield.Type, sfield.Size, sfield.Precision);
+                            sql = IsExistColumn(model.TableName, sfield.FieldName);
+                            if (SqlTyepConvert.ConvertToInt(sqlAccess.ExecuteScalar(sql)) > 0)
+                            {
+                                sql = UpgradeColumn(model.TableName, sfield.FieldName,
+                                sfield.Type, sfield.Size, sfield.Precision);
+                            }
+                            else
+                            {
+                                sql = CreateColumn(model.TableName, sfield.FieldName,
+                                sfield.Type, sfield.Size, sfield.Precision);
+                            }
+                            sqlAccess.ExecuteNonQuery(sql);
                         }
-                        sqlAccess.ExecuteNonQuery(sql);
                     }
                 }
                 catch (Exception e)
@@ -164,7 +401,7 @@ namespace Model
 
         public string CreateTable(string tableName)
         {
-            return string.Format($"CREATE TABLE {tableName}(Id int)");
+            return string.Format($"CREATE TABLE {tableName}(Id INT IDENTITY(1,1))");
         }
 
         public string IsExistTable(string tableName)

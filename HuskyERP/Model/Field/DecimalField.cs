@@ -8,7 +8,8 @@ namespace Model.Field
 {
     public class DecimalField : FieldBase<decimal>
     {
-        public DecimalField(ModelBase model, string fieldName, int size, int precision, bool isStore = true)
+        public DecimalField(ModelBase model, 
+            string fieldName, int size, int precision, bool isStore = true) : base()
         {
             Model = model;
             FieldName = fieldName;

@@ -23,12 +23,13 @@ namespace Model.Field
             protected set { _inverseName = value; }
         }
         public One2Many(ModelBase model,
-            string fieldName, string comodelName, string inverseName)
+            string fieldName, string comodelName, string inverseName) : base()
         {
             Model = model;
             FieldName = fieldName;
             _comodelName = comodelName;
             InverseName = inverseName;
+            IsStore = false;
         }
 
         private IList<ModelBase> _value;

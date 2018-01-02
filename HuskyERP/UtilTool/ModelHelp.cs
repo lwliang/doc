@@ -14,5 +14,11 @@ namespace UtilTool
                 return string.Empty;
             return modelName.Replace('.', '_');
         }
+
+        public static string ModelRelationTableName(string model1, string model2)
+        {
+            return string.Format($"{ModelNameToTableName(model1)}_{ModelNameToTableName(model2)}_ref");
+        }
+
     }
 }

@@ -8,7 +8,8 @@ namespace Model.Field
 {
     public class IntegerField : FieldBase<int>
     {
-        public IntegerField(ModelBase model, string fieldName, bool isStore = true)
+        public IntegerField(ModelBase model, 
+            string fieldName, bool isStore = true) : base()
         {
             Model = model;
             FieldName = fieldName;

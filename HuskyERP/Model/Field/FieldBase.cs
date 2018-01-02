@@ -15,9 +15,25 @@ namespace Model.Field
             Precision = 2;
         }
 
-        public T Default { get; protected set; }
+        public virtual bool IsModify
+        {
+            get
+            {
+                if (OldValue == null && Value != null) return true;
+                if (OldValue == null || Value == null) return false;
+                if (OldValue != null && Value == null) return true;
+                return !OldValue.Equals(Value);
+            }
+        }
+        public T OldValue { get; protected set; }
 
-        public virtual T Value { get; set; }
+        public T Default { get; protected set; }
+        private T _value;
+        public virtual T Value
+        {
+            get { return _value; }
+            set { OldValue = _value; _value = value; }
+        }
 
         public bool IsStore { get; protected set; }
 
@@ -26,11 +42,19 @@ namespace Model.Field
         public ModelBase Model { get; protected set; }
 
         public string FieldName { get; protected set; }
+        public virtual string ColumnValue
+        {
+            get
+            {
+                if (Value == null) return "";
+                return Value.ToString();
+            }
+        }
         private string _columnName;
         /// <summary>
         /// 数据库字段名称
         /// </summary>
-        public string ColumnName
+        public virtual string ColumnName
         {
             get
             {
@@ -44,5 +68,10 @@ namespace Model.Field
         public int Size { get; protected set; }
 
         public int Precision { get; protected set; }
+
+        public virtual void Save()
+        {
+            OldValue = Value;
+        }
     }
 }

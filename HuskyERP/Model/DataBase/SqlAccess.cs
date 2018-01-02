@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace Model.DataBase
 {
 
-    public interface ISqlAccess
+    public interface ISqlAccess : IDisposable
     {
         SqlDataReader ExecuteReader(string sql);
         object ExecuteScalar(string sql);
@@ -116,7 +116,8 @@ namespace Model.DataBase
 
         public void Dispose()
         {
-            throw new NotImplementedException();
+            if (_tran != null) _tran.Dispose();
+            if (_conn != null) _conn.Dispose();
         }
     }
 }

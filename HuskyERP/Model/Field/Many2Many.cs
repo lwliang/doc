@@ -3,19 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UtilTool;
 
 namespace Model.Field
 {
     public class Many2Many : FieldBase<IList<ModelBase>>
     {
         private string _tableName;
-        public string TableName
+        public string RelationTableName
         {
             get
             {
                 if (!string.IsNullOrEmpty(_tableName))
                     return _tableName;
-                throw new NotImplementedException();
+                return ModelHelp.ModelRelationTableName(Model.ModelName, _comodelName); ;
             }
             protected set
             {
@@ -29,28 +30,24 @@ namespace Model.Field
             {
                 if (!string.IsNullOrEmpty(_columnName1))
                     return _columnName1;
-                throw new NotImplementedException();
+                return ModelHelp.ModelNameToTableName(_comodelName) + "_id";
             }
             protected set
             {
                 _columnName1 = value;
             }
         }
-        public string _columnName2;
-        public string ColumnName2
+        private string _columnName;
+        public override string ColumnName
         {
             get
             {
-                if (!string.IsNullOrEmpty(_columnName2))
-                    return _columnName2;
-                throw new NotImplementedException();
+                if (!string.IsNullOrEmpty(_columnName))
+                    return _columnName;
+                return ModelHelp.ModelNameToTableName(Model.ModelName) + "_id";
             }
-            protected set
-            {
-                _columnName2 = value;
-            }
+            protected set { _columnName = value; }
         }
-
         private string _comodelName;
         public Type ModelType
         {
@@ -60,7 +57,7 @@ namespace Model.Field
             }
         }
         public Many2Many(ModelBase model,
-            string fieldName, string comodelName)
+            string fieldName, string comodelName) : base()
         {
             Model = model;
             FieldName = fieldName;

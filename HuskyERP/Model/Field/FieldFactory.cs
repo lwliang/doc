@@ -25,5 +25,17 @@ namespace Model.Field
         {
             return new DecimalField(model, fieldName, size, precision, isStore);
         }
+
+        public static One2Many CreateOne2ManyField(ModelBase model, string fieldName,
+            string comodelName, string inverseName)
+        {
+            return new One2Many(model, fieldName, comodelName, inverseName);
+        }
+
+        public static Many2One CreateMany2OneField(ModelBase model,
+            string fieldName, string comodelName)
+        {
+            return new Many2One(model, fieldName, comodelName);
+        }
     }
 }

@@ -9,6 +9,10 @@ namespace Model.Field
     public class Many2One : FieldBase<ModelBase>
     {
         private string _comodelName;
+        public string CoModelName
+        {
+            get { return _comodelName; }
+        }
         public Type ModelType
         {
             get
@@ -17,7 +21,7 @@ namespace Model.Field
             }
         }
         public Many2One(ModelBase model,
-            string fieldName, string comodelName)
+            string fieldName, string comodelName) : base()
         {
             Model = model;
             FieldName = fieldName;
@@ -35,6 +39,7 @@ namespace Model.Field
                 }
                 return _value;
             }
+            set { _value = value; }
         }
     }
 }
