@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Owin.Builder;
 using Nowin;
+using Owin;
 
 namespace NowinSample
 {
@@ -40,4 +42,58 @@ namespace NowinSample
         }
     }
 
+}
+
+namespace SampleOwinApp
+{
+    public class Startup
+    {
+        public void Configuration(IAppBuilder app)
+        {
+            app.Run(async c =>
+            {
+                var path = c.Request.Path.Value;
+                if (path == "/")
+                {
+                    c.Response.StatusCode = 200;
+                    c.Response.ContentType = "text/plain";
+                    c.Response.Write("Hello World!");
+                    return;
+                }
+                if (path == "/sse")
+                {
+                    c.Response.StatusCode = 200;
+                    c.Response.ContentType = "text/event-stream";
+                    c.Response.Headers.Add("Cache-Control", new[] { "no-cache" });
+                    for (int i = 0; i < 10; i++)
+                    {
+                        await c.Response.WriteAsync("data: " + i.ToString() + "\n\n");
+                        await c.Response.Body.FlushAsync();
+                        await Task.Delay(500);
+                    }
+                    await c.Response.WriteAsync("data: Finish!\n\n");
+                    return;
+                }
+                c.Response.StatusCode = 404;
+                return;
+            });
+        }
+    }
+
+    public static class Sample
+    {
+        static readonly Func<IDictionary<string, object>, Task> OwinApp;
+
+        static Sample()
+        {
+            var builder = new AppBuilder();
+            new Startup().Configuration(builder);
+            OwinApp = builder.Build();
+        }
+
+        public static Task App(IDictionary<string, object> arg)
+        {
+            return OwinApp(arg);
+        }
+    }
 }
