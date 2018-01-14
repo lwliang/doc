@@ -45,4 +45,14 @@ namespace HuskyTest
             Childs = FieldFactory.CreateOne2ManyField(this, nameof(Childs), "test.user", "ParentId");
         }
     }
+
+    public class TestModelEx : TestModel
+    {
+        public IntegerField NoEx { get; protected set; }
+        public TestModelEx() : base()
+        {
+            ModelName = "test.userex";
+            NoEx = FieldFactory.CreateIntegerField(this, nameof(NoEx));
+        }
+    }
 }

@@ -3,9 +3,16 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Owin;
 using Microsoft.Owin.Builder;
 using Nowin;
 using Owin;
+using System.IO;
+using System.Text;
+using Model.DataBase;
+using System.Web;
+using Model;
+using Model.Field;
 
 namespace NowinSample
 {
@@ -48,16 +55,71 @@ namespace SampleOwinApp
 {
     public class Startup
     {
+        public void index(IOwinContext owinContext)
+        {
+            var response = owinContext.Response;
+            var request = owinContext.Request;
+            if (request.Method == "GET")
+            {
+                response.StatusCode = 200;
+                response.ContentType = "text/html;charset=UTF-8";
+
+                response.Write(File.ReadAllBytes("./index.html"));
+
+            }
+            else if (request.Method == "POST")
+            {
+                response.StatusCode = 200;
+                response.ContentType = "text/plain;charset=UTF-8";
+                using (var sr = new StreamReader(request.Body))
+                {
+                    try
+                    {
+                        var database = DataBaseManager.CreateSingleInstace();
+                        database.Server = ".";
+                        database.UserName = "sa";
+                        database.PassWord = "123456";
+                        database.SqlType = SqlType.MsSql;
+                        database.DataBaseName = "master";
+                        database.ModelManager.Register(new TestModel());
+                        var r = sr.ReadToEnd();
+                        var forms = r.Split('&');
+                        var dic = new Dictionary<string, string>();
+                        foreach (var name in forms)
+                        {
+                            var param = name.Split('=');
+                            dic.Add(param[0], HttpUtility.UrlDecode(param[1]));
+                        }
+
+                        if (dic.ContainsKey("create"))
+                        {
+                            database.Create(dic["databasename"]);
+                            response.Write("完成创建数据库");
+                        }
+                        else
+                        {
+                            database.Upgrade(dic["databasename"]);
+                            response.Write("完成升级数据库");
+                        }
+
+                    }
+                    catch (Exception ex)
+                    {
+                        response.Write($"系统异常：{ex.Message}");
+                    }
+                }
+            }
+
+        }
+
         public void Configuration(IAppBuilder app)
         {
             app.Run(async c =>
             {
                 var path = c.Request.Path.Value;
-                if (path == "/")
+                if (path == "/" || path == "/index.html")
                 {
-                    c.Response.StatusCode = 200;
-                    c.Response.ContentType = "text/plain";
-                    c.Response.Write("Hello World!");
+                    index(c);
                     return;
                 }
                 if (path == "/sse")
@@ -80,20 +142,21 @@ namespace SampleOwinApp
         }
     }
 
-    public static class Sample
+    public class TestModel : RealModel
     {
-        static readonly Func<IDictionary<string, object>, Task> OwinApp;
-
-        static Sample()
+        public IntegerField No { get; protected set; }
+        public StringField Name { get; protected set; }
+        public DecimalField Price { get; protected set; }
+        public Many2One ParentId { get; protected set; }
+        public StringField Title { get; protected set; }
+        public TestModel() : base()
         {
-            var builder = new AppBuilder();
-            new Startup().Configuration(builder);
-            OwinApp = builder.Build();
-        }
-
-        public static Task App(IDictionary<string, object> arg)
-        {
-            return OwinApp(arg);
+            ModelName = "test.user";
+            No = FieldFactory.CreateIntegerField(this, nameof(No));
+            Name = FieldFactory.CreateStringField(this, nameof(Name), 100);
+            Title = FieldFactory.CreateStringField(this, nameof(Title), 1000);
+            Price = FieldFactory.CreateDecimalField(this, nameof(Price), 10, 2);
+            ParentId = FieldFactory.CreateMany2OneField(this, nameof(ParentId), "test.parent");
         }
     }
 }

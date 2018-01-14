@@ -37,6 +37,7 @@ namespace HuskyTest
             database.DataBaseName = "master";
             database.ModelManager.Register(new TestModel());
             database.ModelManager.Register(new ParentModel());
+            database.ModelManager.Register(new TestModelEx());
             var b = database.Upgrade("liwenliang");
 
             Assert.AreEqual(b, true);

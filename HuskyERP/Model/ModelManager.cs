@@ -235,7 +235,8 @@ namespace Model
 
         public bool UpgradeDataBase(string dataBaseName)
         {
-            if (!IsExistDataBase(dataBaseName)) return false;
+            if (!IsExistDataBase(dataBaseName))
+                CreateDataBase(dataBaseName);
             DataBaseManager.Instance.DataBaseName = dataBaseName;
             UpgradeAllTables();
             return true;
@@ -368,8 +369,12 @@ namespace Model
                             }
                             else
                             {
-                                sql = CreateColumn(model.TableName, sfield.ColumnName,
-                                typeof(int), 0, 0);
+                                sql = IsExistColumn(model.TableName, sfield.FieldName);
+                                if (SqlTyepConvert.ConvertToInt(sqlAccess.ExecuteScalar(sql)) == 0)
+                                    sql = CreateColumn(model.TableName, sfield.ColumnName,
+                                                            typeof(int), 0, 0);
+                                else
+                                    sql = string.Empty;
                             }
                             if (!string.IsNullOrEmpty(sql))
                                 sqlAccess.ExecuteNonQuery(sql);
@@ -401,7 +406,7 @@ namespace Model
 
         public string CreateTable(string tableName)
         {
-            return string.Format($"CREATE TABLE {tableName}(Id INT IDENTITY(1,1))");
+            return string.Format($"CREATE TABLE {tableName}(Id INT IDENTITY(1,1) PRIMARY KEY)");
         }
 
         public string IsExistTable(string tableName)
